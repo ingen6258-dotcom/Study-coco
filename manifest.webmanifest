@@ -1,6 +1,6 @@
 {
-  "name": "StudyPilot 学習計画",
-  "short_name": "StudyPilot",
+  "name": "Study CoCo 学習計画",
+  "short_name": "Study CoCo",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
