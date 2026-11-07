@@ -7,3 +7,9 @@
 
 /* v6: narrow-screen form safety and task metadata */
 .grid input[type=date],.grid input[type=time]{min-width:0;max-width:100%;width:100%;font-size:16px;} .grid>label{min-width:0;} .task small{line-height:1.5;} .schedule-break{border-left:3px solid #8ba8dc;} .schedule-fixed{border-left:3px solid #e7b65b;}
+/* v6.1: tappable mascot speech bubble */
+.mascot-bubble{flex:1;text-align:left;background:#fff;border:1px solid #f0e2b2;border-radius:12px;padding:10px 13px;color:#785b16;box-shadow:0 2px 7px #785b1610;min-height:64px}
+.mascot-bubble strong{display:block;font-size:14px}
+.mascot-bubble p{margin:3px 0 2px;color:#806e42;font-size:13px;line-height:1.5}
+.mascot-bubble small{display:block;color:#a18d60;font-size:10px}
+.mascot-bubble:active{transform:scale(.99);background:#fffaf0}
