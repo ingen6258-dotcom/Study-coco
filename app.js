@@ -1,0 +1,33 @@
+(()=>{"use strict";
+const $=id=>document.getElementById(id),KEY="studypilot.v1";
+const fields=["grade","school","faculty","exam","strong","weak","subjects","methods","instructions"];
+const today=()=>{let d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")};
+const fresh=()=>({profile:{},plans:{}});
+let db=(()=>{try{let x=JSON.parse(localStorage.getItem(KEY));return x&&x.profile&&x.plans?x:fresh()}catch(e){return fresh()}})();
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db));$("status").textContent="保存済み";setTimeout(()=>$("status").textContent="端末に保存",1200)}catch(e){$("status").textContent="保存エラー";alert("保存できません。端末の空き容量を確認してください。")}};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$(b.dataset.tab).classList.remove("hidden");document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));if(b.dataset.tab==="history")history()});
+fields.forEach(k=>$(k).value=db.profile[k]||"");
+$("profileForm").onsubmit=e=>{e.preventDefault();fields.forEach(k=>db.profile[k]=$(k).value.trim());save();alert("プロフィールを保存しました。")};
+$("date").value=today();
+function build(input,old){let tasks=[],add=(name,detail,mins)=>tasks.push({id:"t"+tasks.length+"-"+Date.now(),name,detail,mins,done:false});
+let n=input.minutes;
+if(input.fatigue==="high"){add("期限・提出課題の確認",input.assignments||"提出物を確認する",Math.min(15,Math.round(n*.2)));add("短時間の暗記", "単語・公式などを見ずに思い出す",Math.min(15,Math.round(n*.2)));add("最優先科目",input.focus||db.profile.weak||"最も必要な学習を1つ",Math.max(10,n-tasks.reduce((a,t)=>a+t.mins,0)))}
+else{add("課題・テスト範囲の確認",input.assignments||input.tests||"期限と範囲を確認",Math.min(15,Math.max(10,Math.round(n*.1))));if(n>=50)add("計算・基礎問題","基礎問題を解いて正確さを確認",Math.min(20,Math.max(10,Math.round(n*.15))));add("重点科目",input.focus||db.profile.weak||"苦手科目・授業内容",Math.max(15,Math.round(n*.4)));add("暗記・知識の確認","教材を閉じて覚えた内容を再現",Math.min(20,Math.max(10,Math.round(n*.15))));if(n>=100)add("解き直し・振り返り","間違いの原因と次に解く問題をメモ",Math.max(10,n-tasks.reduce((a,t)=>a+t.mins,0)))}
+let sum=tasks.reduce((a,t)=>a+t.mins,0);if(sum>n){let over=sum-n;for(let t of tasks.slice().reverse()){let cut=Math.min(over,Math.max(0,t.mins-5));t.mins-=cut;over-=cut;if(!over)break}}else if(sum<n)tasks.push({id:"extra"+Date.now(),name:"追加演習・予備時間",detail:"余裕があれば弱点問題に取り組む",mins:n-sum,done:false});
+let minimum=[{id:"m1",name:"最優先課題を1つ進める",detail:"期限が近い課題か最重要の学習を選ぶ",mins:10,done:false},{id:"m2",name:"暗記・復習を少し行う",detail:"単語や公式を見ずに思い出す",mins:5,done:false}];
+if(old){let prev=new Map([...(old.tasks||[]),...(old.minimum||[])].map(t=>[t.name,t.done]));[...tasks,...minimum].forEach(t=>t.done=!!prev.get(t.name))}
+return {...input,tasks,minimum}};
+$("planForm").onsubmit=e=>{e.preventDefault();let input={date:$("date").value,start:$("start").value,minutes:Math.max(15,Math.min(900,Number($("minutes").value)||60)),fatigue:$("fatigue").value,tests:$("tests").value.trim(),assignments:$("assignments").value.trim(),focus:$("focus").value.trim()};db.plans[input.date]=build(input,db.plans[input.date]);save();render(input.date)};
+function range(start,offset,mins){let [h,m]=(start||"17:00").split(":").map(Number),a=new Date(2000,0,1,h,m+offset),b=new Date(a.getTime()+mins*60000),f=d=>String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");return f(a)+"–"+f(b)}
+function render(date){let p=db.plans[date];if(!p)return;let done=p.tasks.filter(t=>t.done).length,pct=Math.round(done/p.tasks.length*100),offset=0;
+function rows(group){return p[group].map(t=>{let time=group==="tasks"?range(p.start,offset,t.mins):t.mins+"分";if(group==="tasks")offset+=t.mins;return `<div class="task ${t.done?"done":""}"><input type="checkbox" data-group="${group}" data-id="${esc(t.id)}" ${t.done?"checked":""}><label>${esc(t.name)}<small>${esc(t.detail)}</small></label><time>${time}</time></div>`}).join("")}
+$("plan").className="card";$("plan").innerHTML=`<b>${esc(date)} の学習メニュー</b><p class="muted">${p.minutes}分 · ${esc(p.start)}開始予定 · 疲労度：${p.fatigue==="high"?"高い":p.fatigue==="low"?"低い":"普通"}</p><div class="muted">通常プラン：${pct}%（${done}/${p.tasks.length}）</div><div class="bar"><span style="width:${pct}%"></span></div><h3>通常プラン</h3>${rows("tasks")}<div class="minimum"><b>時間がなくなった日の最低限プラン</b><p class="muted">予定が崩れたときは、まずこの2つを目安に。</p>${rows("minimum")}</div>`;
+$("plan").querySelectorAll("input").forEach(c=>c.onchange=()=>{let t=db.plans[date][c.dataset.group].find(x=>x.id===c.dataset.id);if(t)t.done=c.checked;save();render(date)})}
+function history(){let ps=Object.values(db.plans).sort((a,b)=>b.date.localeCompare(a.date)),all=ps.flatMap(p=>p.tasks||[]),done=all.filter(t=>t.done).length,rate=all.length?Math.round(done/all.length*100):0;$("stats").innerHTML=`<div class="stat"><b>${ps.length}</b><small>計画日数</small></div><div class="stat"><b>${done}</b><small>完了タスク</small></div><div class="stat"><b>${rate}%</b><small>達成率</small></div>`;$("records").innerHTML=ps.length?ps.map(p=>{let n=p.tasks.filter(t=>t.done).length;return `<div class="record"><b>${esc(p.date)}</b><p class="muted">${p.minutes}分の計画 · ${n}/${p.tasks.length}タスク完了</p></div>`}).join(""):'<div class="card muted">まだ記録がありません。</div>'}
+$("export").onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="studypilot-backup-"+today()+".json";a.click();URL.revokeObjectURL(url)};
+$("import").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let x=JSON.parse(await f.text());if(!x.profile||!x.plans)throw Error();if(!confirm("現在のデータをバックアップで置き換えますか？"))return;db=x;save();fields.forEach(k=>$(k).value=db.profile[k]||"");if(db.plans[$("date").value])render($("date").value);history();alert("読み込みました")}catch(_){alert("StudyPilotのJSONバックアップを選んでください")}e.target.value=""};
+$("reset").onclick=()=>{if(confirm("すべてのプロフィール・計画・記録を削除します。よろしいですか？")){db=fresh();save();fields.forEach(k=>$(k).value="");$("plan").className="card empty";$("plan").textContent="ここに今日の計画が表示されます。";history()}};
+if(db.plans[today()]){let p=db.plans[today()];$("date").value=p.date;$("start").value=p.start;$("minutes").value=p.minutes;$("fatigue").value=p.fatigue;$("tests").value=p.tests;$("assignments").value=p.assignments;$("focus").value=p.focus;render(today())}
+if("serviceWorker"in navigator&&location.protocol.startsWith("http"))addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js").catch(()=>{}));
+})();
